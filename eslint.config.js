@@ -4,9 +4,10 @@ import hooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 
 export default [
+  { ignores: ["dist/**", "dev-dist/**", "node_modules/**", "vite.config.js", "eslint.config.js", "test-*.mjs", ".app.bundle.mjs"] },
   js.configs.recommended,
   {
-    files: ["src/**/*.{js,jsx}"],
+    files: ["**/*.{js,jsx}"],
     languageOptions: { ecmaVersion: 2022, sourceType: "module", globals: globals.browser, parserOptions: { ecmaFeatures: { jsx: true } } },
     plugins: { react, "react-hooks": hooks },
     settings: { react: { version: "18" } },

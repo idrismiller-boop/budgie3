@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Plus, Trash2, Check } from "lucide-react";
-import { n0, uid, isISO, monthStart, monthEnd, monthLabel, shortDate, catStatus } from "../lib/calc.js";
-import { fmt, STATUS_TXT } from "../lib/format.js";
-import { Chip, Meter, Card, Field, Note, MoneyInput, StackBar } from "../components/ui.jsx";
+import { n0, uid, isISO, monthStart, monthEnd, monthLabel, shortDate, catStatus } from "./calc.js";
+import { fmt, STATUS_TXT } from "./format.js";
+import { Chip, Meter, Card, Field, Note, MoneyInput, StackBar } from "./ui.jsx";
 
 /* ================= Plan ================= */
 

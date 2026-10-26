@@ -1,9 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Trash2, Download, Upload, Copy, RotateCcw } from "lucide-react";
-import { todayISO, nextMonth, monthLabel, defaultData, txnsToCSV, csvToTxns, txnKey, exportJSON, parseBackup, rollMonth } from "../lib/calc.js";
-import { fmt, pctTxt } from "../lib/format.js";
-import { Card, Note } from "../components/ui.jsx";
-import { requestPersistence, isPersisted, clearAll } from "../lib/storage.js";
+import { todayISO, nextMonth, monthLabel, defaultData, txnsToCSV, csvToTxns, txnKey, exportJSON, parseBackup, rollMonth } from "./calc.js";
+import { fmt, pctTxt } from "./format.js";
+import { Card, Note } from "./ui.jsx";
+import { requestPersistence, isPersisted, clearAll } from "./storage.js";
 
 /* ================= Data: export, import, new month, reset ================= */
 export function DataView({ data, C, update, setData, notify, loadExamples, removeExamples, storage, backupAt, onBackup, install }) {

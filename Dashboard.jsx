@@ -1,7 +1,7 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend as RLegend } from "recharts";
-import { MONTHS, todayISO, parseISO, monthStart, nextMonth, addMonths, monthLabel, shortDate } from "../lib/calc.js";
-import { fmt, pctTxt } from "../lib/format.js";
-import { Money, Chip, Meter, Card, Field, Note, MoneyInput, StackBar, Swatches, CashStrip, MonthRuler } from "../components/ui.jsx";
+import { MONTHS, todayISO, parseISO, monthStart, nextMonth, addMonths, monthLabel, shortDate } from "./calc.js";
+import { fmt, pctTxt } from "./format.js";
+import { Money, Chip, Meter, Card, Field, Note, MoneyInput, StackBar, Swatches, CashStrip, MonthRuler } from "./ui.jsx";
 
 /* ================= Dashboard ================= */
 export function SetupCard({ data, C, update, go }) {

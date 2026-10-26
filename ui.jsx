@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { AlertTriangle, Info } from "lucide-react";
-import { r2, sum } from "../lib/calc.js";
-import { fmt, showNum } from "../lib/format.js";
+import { r2, sum } from "./calc.js";
+import { fmt, showNum } from "./format.js";
 
 
 export const Money = ({ v }) => {

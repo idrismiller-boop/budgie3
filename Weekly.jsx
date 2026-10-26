@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend as RLegend, ReferenceLine } from "recharts";
-import { r2, shortDate, catStatus } from "../lib/calc.js";
-import { fmt, STATUS_TXT } from "../lib/format.js";
-import { Chip, Card, Note } from "../components/ui.jsx";
+import { r2, shortDate, catStatus } from "./calc.js";
+import { fmt, STATUS_TXT } from "./format.js";
+import { Chip, Card, Note } from "./ui.jsx";
 
 /* ================= Weekly review ================= */
 export function buildSuggestions(C, w) {

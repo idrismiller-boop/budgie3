@@ -2,16 +2,16 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import {
   STORE_KEY, defaultData, normalizeData, computeAll, todayISO, monthLabel, monthStart, monthEnd, shortDate,
   makeExamples, sum, n0, r2, uid,
-} from "./lib/calc.js";
-import { readRaw, writeRaw, storageAvailable, keepCorruptCopy, lastBackup, markBackup, requestPersistence } from "./lib/storage.js";
-import { useInstall } from "./lib/install.js";
-import { Dashboard } from "./views/Dashboard.jsx";
-import { Plan } from "./views/Plan.jsx";
-import { Log } from "./views/Log.jsx";
-import { Payday } from "./views/Payday.jsx";
-import { Weekly } from "./views/Weekly.jsx";
-import { Scenarios } from "./views/Scenarios.jsx";
-import { DataView } from "./views/DataView.jsx";
+} from "./calc.js";
+import { readRaw, writeRaw, storageAvailable, keepCorruptCopy, lastBackup, markBackup, requestPersistence } from "./storage.js";
+import { useInstall } from "./install.js";
+import { Dashboard } from "./Dashboard.jsx";
+import { Plan } from "./Plan.jsx";
+import { Log } from "./Log.jsx";
+import { Payday } from "./Payday.jsx";
+import { Weekly } from "./Weekly.jsx";
+import { Scenarios } from "./Scenarios.jsx";
+import { DataView } from "./DataView.jsx";
 
 const TABS = [["dashboard", "Dashboard"], ["plan", "Plan"], ["log", "Log"], ["payday", "Payday"], ["weekly", "Weekly"], ["scenarios", "Scenarios"], ["data", "Data"]];
 

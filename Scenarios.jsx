@@ -1,7 +1,7 @@
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend as RLegend, ReferenceLine } from "recharts";
-import { MONTHS, r2, n0, parseISO, monthStart, addMonths } from "../lib/calc.js";
-import { fmt, pctTxt } from "../lib/format.js";
-import { Chip, Card, Note } from "../components/ui.jsx";
+import { MONTHS, r2, n0, parseISO, monthStart, addMonths } from "./calc.js";
+import { fmt, pctTxt } from "./format.js";
+import { Chip, Card, Note } from "./ui.jsx";
 
 /* ================= Scenarios ================= */
 const TRADE = {

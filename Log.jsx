@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { Plus, Trash2, Check, Pencil } from "lucide-react";
-import { r2, sum, uid, isISO, monthStart, monthEnd, shortDate } from "../lib/calc.js";
-import { fmt } from "../lib/format.js";
-import { Chip, Card, Field, Note, MoneyInput } from "../components/ui.jsx";
+import { r2, sum, uid, isISO, monthStart, monthEnd, shortDate } from "./calc.js";
+import { fmt } from "./format.js";
+import { Chip, Card, Field, Note, MoneyInput } from "./ui.jsx";
 
 /* ================= Transaction log ================= */
 export function Log({ data, C, update, notify, loadExamples, removeExamples }) {

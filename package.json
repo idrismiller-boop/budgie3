@@ -1,20 +1,20 @@
 {
   "name": "monthly-budget",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Personal monthly budgeting dashboard (installable PWA). Data stays on your device.",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "vite",
-    "prebuild": "node -e \"const f=['index.html','vite.config.js','src/main.jsx','src/App.jsx','src/styles.css','src/lib/calc.js','src/lib/format.js','src/lib/storage.js','src/lib/install.js','src/components/ui.jsx','src/views/Dashboard.jsx','src/views/Plan.jsx','src/views/Log.jsx','src/views/Payday.jsx','src/views/Weekly.jsx','src/views/Scenarios.jsx','src/views/DataView.jsx','public/favicon.svg','public/icon-192.png','public/icon-512.png','public/icon-maskable-512.png','public/apple-touch-icon.png'];const m=f.filter(x=>!require('fs').existsSync(x));if(m.length){console.error('\\n=== BUILD STOPPED: these files are missing from your repository ===\\n  '+m.join('\\n  ')+'\\n\\nUpload them to GitHub with the SAME folder names (e.g. src/main.jsx must be inside a folder called src), then redeploy.\\n');process.exit(1)}else{console.log('Project structure OK ('+f.length+' required files found)')}\"",
+    "prebuild": "node -e \"const f=['index.html','vite.config.js','main.jsx','App.jsx','styles.css','calc.js','format.js','storage.js','install.js','ui.jsx','Dashboard.jsx','Plan.jsx','Log.jsx','Payday.jsx','Weekly.jsx','Scenarios.jsx','DataView.jsx','favicon.svg','icon-192.png','icon-512.png','icon-maskable-512.png','apple-touch-icon.png'];const m=f.filter(x=>!require('fs').existsSync(x));if(m.length){console.error('\\n=== BUILD STOPPED: these files are missing from your GitHub repository ===\\n  '+m.join('\\n  ')+'\\n\\nUpload them to the TOP LEVEL of the repository (no folders), then redeploy.\\n');process.exit(1)}else{console.log('Project files OK ('+f.length+' required files found)')}\"",
     "build": "vite build",
     "preview": "vite preview --host",
-    "lint": "eslint src",
-    "test": "node tests/calc.test.mjs",
-    "test:ui": "node tests/ui.smoke.mjs",
+    "lint": "eslint .",
+    "test": "node test-calc.mjs",
+    "test:ui": "node test-ui.mjs",
     "check": "npm run lint && npm test && npm run test:ui && npm run build"
   },
   "dependencies": {

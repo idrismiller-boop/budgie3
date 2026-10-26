@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
-import { r2, shortDate } from "../lib/calc.js";
-import { fmt } from "../lib/format.js";
-import { Chip, Card, StackBar } from "../components/ui.jsx";
+import { r2, shortDate } from "./calc.js";
+import { fmt } from "./format.js";
+import { Chip, Card, StackBar } from "./ui.jsx";
 
 /* ================= Payday ================= */
 export function Payday({ data, C, update, markPaid }) {
