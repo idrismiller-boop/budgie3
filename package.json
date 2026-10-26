@@ -1,0 +1,37 @@
+{
+  "name": "monthly-budget",
+  "private": true,
+  "version": "1.0.1",
+  "description": "Personal monthly budgeting dashboard (installable PWA). Data stays on your device.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "prebuild": "node -e \"const f=['index.html','vite.config.js','src/main.jsx','src/App.jsx','src/styles.css','src/lib/calc.js','src/lib/format.js','src/lib/storage.js','src/lib/install.js','src/components/ui.jsx','src/views/Dashboard.jsx','src/views/Plan.jsx','src/views/Log.jsx','src/views/Payday.jsx','src/views/Weekly.jsx','src/views/Scenarios.jsx','src/views/DataView.jsx','public/favicon.svg','public/icon-192.png','public/icon-512.png','public/icon-maskable-512.png','public/apple-touch-icon.png'];const m=f.filter(x=>!require('fs').existsSync(x));if(m.length){console.error('\\n=== BUILD STOPPED: these files are missing from your repository ===\\n  '+m.join('\\n  ')+'\\n\\nUpload them to GitHub with the SAME folder names (e.g. src/main.jsx must be inside a folder called src), then redeploy.\\n');process.exit(1)}else{console.log('Project structure OK ('+f.length+' required files found)')}\"",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "lint": "eslint src",
+    "test": "node tests/calc.test.mjs",
+    "test:ui": "node tests/ui.smoke.mjs",
+    "check": "npm run lint && npm test && npm run test:ui && npm run build"
+  },
+  "dependencies": {
+    "lucide-react": "^0.383.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.15.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^17.13.0",
+    "jsdom": "^25.0.1",
+    "vite": "^5.4.21",
+    "vite-plugin-pwa": "^0.21.2"
+  }
+}
