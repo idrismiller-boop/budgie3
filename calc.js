@@ -54,6 +54,92 @@ export const monthLabel = (ym) => {
   const [y, m] = ym.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 };
+export const prevMonth = (ym) => {
+  let [y, m] = ym.split("-").map(Number);
+  m -= 1;
+  if (m < 1) { m = 12; y -= 1; }
+  return `${y}-${pad(m)}`;
+};
+export const addDays = (s, n) => {
+  const { y, m, d } = parseISO(s);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return iso(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
+};
+export const diffDays = (a, b) => {
+  const A = parseISO(a);
+  const B = parseISO(b);
+  return Math.round((Date.UTC(B.y, B.m - 1, B.d) - Date.UTC(A.y, A.m - 1, A.d)) / 86400000);
+};
+export const addMonthsToDate = (s, k) => {
+  const { y, m, d } = parseISO(s);
+  const t = y * 12 + (m - 1) + k;
+  const ny = Math.floor(t / 12);
+  const nm = (t % 12 + 12) % 12 + 1;
+  return iso(ny, nm, Math.min(d, daysInMonth(`${ny}-${pad(nm)}`)));
+};
+
+/* ---------- pay periods ----------
+   A period is identified by the month in which it STARTS (settings.month) and the payday (1-31).
+   payday 1 = ordinary calendar month. payday 25 and month "2026-10" = 25 Oct to 24 Nov 2026.
+   A payday later than the month's length is clamped (31 -> 28 in Feb), so periods always join up. */
+export const periodStartOf = (ym, payday) => `${ym}-${pad(Math.min(Math.max(Math.floor(Number(payday)) || 1, 1), daysInMonth(ym)))}`;
+export const getPeriod = (st) => {
+  const pd = Math.min(Math.max(Math.floor(Number(st.payday)) || 1, 1), 31);
+  const start = periodStartOf(st.month, pd);
+  const end = addDays(periodStartOf(nextMonth(st.month), pd), -1);
+  return { key: st.month, start, end, days: diffDays(start, end) + 1, payday: pd };
+};
+export const periodKeyFor = (dateISO, payday) => {
+  const ym = dateISO.slice(0, 7);
+  if (!(payday > 1)) return ym;
+  return parseISO(dateISO).d >= parseISO(periodStartOf(ym, payday)).d ? ym : prevMonth(ym);
+};
+export const periodName = (ym, payday) => {
+  if (!(payday > 1)) return monthLabel(ym);
+  const p = getPeriod({ month: ym, payday });
+  const sy = p.start.slice(0, 4);
+  const ey = p.end.slice(0, 4);
+  return sy === ey ? `${shortDate(p.start)} – ${shortDate(p.end)} ${ey}` : `${shortDate(p.start)} ${sy} – ${shortDate(p.end)} ${ey}`;
+};
+export const periodShort = (ym, payday) => (payday > 1 ? shortDate(periodStartOf(ym, payday)) : MONTHS[Number(ym.slice(5, 7)) - 1]);
+
+/* ---------- recurring bills: when does each one fall due inside a period? ---------- */
+export const FREQS = { period: "Every pay period", weekly: "Every week", fortnightly: "Every 2 weeks", fourweekly: "Every 4 weeks", quarterly: "Every 3 months", yearly: "Every year" };
+const DAY_STEP = { weekly: 7, fortnightly: 14, fourweekly: 28 };
+const MONTH_STEP = { quarterly: 3, yearly: 12 };
+const dueDateIn = (period, due) => {
+  const s = parseISO(period.start);
+  const ym1 = `${s.y}-${pad(s.m)}`;
+  const c1 = iso(s.y, s.m, Math.min(due, daysInMonth(ym1)));
+  if (c1 >= period.start && c1 <= period.end) return c1;
+  const ym2 = nextMonth(ym1);
+  const [y2, m2] = ym2.split("-").map(Number);
+  const c2 = iso(y2, m2, Math.min(due, daysInMonth(ym2)));
+  return c2 >= period.start && c2 <= period.end ? c2 : period.start;
+};
+export const occurrences = (line, period) => {
+  const f = line.freq || "period";
+  if (f === "period") return line.due ? [dueDateIn(period, line.due)] : [];
+  const anchor = isISO(line.anchor) ? line.anchor : period.start;
+  const out = [];
+  if (DAY_STEP[f]) {
+    const step = DAY_STEP[f];
+    const n = Math.ceil(diffDays(anchor, period.start) / step);
+    for (let d = addDays(anchor, n * step); d <= period.end; d = addDays(d, step)) out.push(d);
+  } else if (MONTH_STEP[f]) {
+    const step = MONTH_STEP[f];
+    const a = parseISO(anchor);
+    const s = parseISO(period.start);
+    let k = Math.floor((s.y * 12 + s.m - (a.y * 12 + a.m)) / step) - 1;
+    for (let i = 0; i < 6; i++, k++) {
+      const d = addMonthsToDate(anchor, k * step);
+      if (d > period.end) break;
+      if (d >= period.start) out.push(d);
+    }
+  }
+  return out;
+};
+
 export const shortDate = (s) => {
   if (!isISO(s)) return "";
   const { m, d } = parseISO(s);
@@ -66,6 +152,7 @@ export const defaultData = (month) => ({
   version: 1,
   settings: {
     month: month || currentMonth(),
+    payday: 1,
     asOf: "",
     openingCash: null,
     buffer: 50,
@@ -74,19 +161,19 @@ export const defaultData = (month) => ({
     scenarioPct: { cautious: 30, balanced: 50, ambitious: 70 },
   },
   income: [
-    { id: "inc_salary", key: "salary", kind: "salary", name: "Salary (take-home)", amount: 2303, counted: true },
+    { id: "inc_salary", key: "salary", kind: "salary", name: "Take-home pay", amount: null, counted: true },
     { id: "inc_side", key: "side", kind: "side", name: "Side income", amount: 0, counted: false },
     { id: "inc_bonus", key: "bonus", kind: "bonus", name: "Bonuses", amount: 0, counted: false },
     { id: "inc_other", key: "other", kind: "other", name: "Other income", amount: 0, counted: false },
   ],
   fixed: [
-    { id: "fx_rent", key: "rent", name: "Rent contribution", amount: 1000, due: null },
-    { id: "fx_bills", key: "bills", name: "Bills contribution", amount: 188, due: null },
-    { id: "fx_council", key: "council", name: "Council tax", amount: null, due: null },
-    { id: "fx_phone", key: "phone", name: "Phone", amount: null, due: null },
-    { id: "fx_subs", key: "subs", name: "Subscriptions", amount: null, due: null },
-    { id: "fx_transport", key: "transport", name: "Transport (passes, season tickets)", amount: null, due: null },
-    { id: "fx_other", key: "otherfixed", name: "Other regular payments", amount: null, due: null },
+    { id: "fx_rent", key: "rent", name: "Rent contribution", amount: 1000, due: null, freq: "period", anchor: null },
+    { id: "fx_bills", key: "bills", name: "Bills contribution", amount: 188, due: null, freq: "period", anchor: null },
+    { id: "fx_council", key: "council", name: "Council tax", amount: null, due: null, freq: "period", anchor: null },
+    { id: "fx_phone", key: "phone", name: "Phone", amount: null, due: null, freq: "period", anchor: null },
+    { id: "fx_subs", key: "subs", name: "Subscriptions", amount: null, due: null, freq: "period", anchor: null },
+    { id: "fx_transport", key: "transport", name: "Transport (passes, season tickets)", amount: null, due: null, freq: "period", anchor: null },
+    { id: "fx_other", key: "otherfixed", name: "Other regular payments", amount: null, due: null, freq: "period", anchor: null },
   ],
   variable: [
     { id: "vr_groceries", key: "groceries", name: "Groceries", amount: null, essential: true },
@@ -120,6 +207,7 @@ export const normalizeData = (raw) => {
   const rs = raw.settings || {};
   const settings = {
     month: typeof rs.month === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(rs.month) ? rs.month : base.settings.month,
+    payday: Number.isInteger(rs.payday) && rs.payday >= 1 && rs.payday <= 31 ? rs.payday : 1,
     asOf: isISO(rs.asOf) ? rs.asOf : "",
     openingCash: num(rs.openingCash),
     buffer: rs.buffer === undefined ? base.settings.buffer : num(rs.buffer) ?? 0,
@@ -137,7 +225,7 @@ export const normalizeData = (raw) => {
     key: typeof l.key === "string" ? l.key : undefined,
     kind: ["salary", "side", "bonus", "other"].includes(l.kind) ? l.kind : "other",
     name: str(l.name, "Income"),
-    amount: num(l.amount) ?? 0,
+    amount: l.kind === "salary" ? num(l.amount) : num(l.amount) ?? 0,
     counted: l.counted === true,
   }));
   const fixed = lines(raw.fixed, base.fixed, (l) => ({
@@ -146,6 +234,8 @@ export const normalizeData = (raw) => {
     name: str(l.name, "Payment"),
     amount: num(l.amount),
     due: Number.isInteger(l.due) && l.due >= 1 && l.due <= 31 ? l.due : null,
+    freq: Object.prototype.hasOwnProperty.call(FREQS, l.freq) ? l.freq : "period",
+    anchor: isISO(l.anchor) ? l.anchor : null,
   }));
   const variable = lines(raw.variable, base.variable, (l) => ({
     id: str(l.id, uid()),
@@ -181,6 +271,7 @@ export const normalizeData = (raw) => {
     }));
   const history = (Array.isArray(raw.history) ? raw.history : []).slice(-36).map((h) => ({
     month: typeof h.month === "string" ? h.month : "",
+    label: typeof h.label === "string" ? h.label.slice(0, 60) : "",
     income: n0(h.income),
     expenses: n0(h.expenses),
     saved: n0(h.saved),
@@ -203,23 +294,22 @@ export const normalizeData = (raw) => {
 
 /* ---------- the date the dashboard treats as "today" ---------- */
 export const effective = (settings, nowISO) => {
-  const s = monthStart(settings.month);
-  const e = monthEnd(settings.month);
-  const dim = daysInMonth(settings.month);
+  const p = getPeriod(settings);
+  const dim = p.days;
   const t = isISO(settings.asOf) ? settings.asOf : nowISO;
-  if (t < s) return { date: s, state: "before", day: 0, daysRemaining: dim, dim, elapsed: 0 };
-  if (t > e) return { date: e, state: "after", day: dim, daysRemaining: 0, dim, elapsed: dim };
-  const day = parseISO(t).d;
-  return { date: t, state: "during", day, daysRemaining: dim - day + 1, dim, elapsed: day };
+  if (t < p.start) return { date: p.start, state: "before", day: 0, daysRemaining: dim, dim, elapsed: 0, period: p };
+  if (t > p.end) return { date: p.end, state: "after", day: dim, daysRemaining: 0, dim, elapsed: dim, period: p };
+  const day = diffDays(p.start, t) + 1;
+  return { date: t, state: "during", day, daysRemaining: dim - day + 1, dim, elapsed: day, period: p };
 };
 
 /* ---------- planned vs actual for one budget line (no double counting) ----------
    B = budget, P = paid, S = scheduled (planned-status transactions).
    remaining = max(B - P, S): scheduled items live INSIDE the budget, they never add on top.
    projected = P + remaining = max(B, P + S).                                              */
-export const lineStats = (line, txns) => {
+export const lineStats = (line, txns, budget) => {
   const mine = txns.filter((t) => t.catId === line.id);
-  const B = n0(line.amount);
+  const B = budget === undefined ? n0(line.amount) : budget;
   const P = sum(mine.filter((t) => t.status === "paid"), (t) => t.amount);
   const S = sum(mine.filter((t) => t.status === "planned"), (t) => t.amount);
   const remaining = r2(Math.max(r2(B - P), S, 0));
@@ -234,12 +324,11 @@ export const catStatus = (B, P, frac, state) => {
   return "ok";
 };
 
-export const weekBlocks = (ym) => {
-  const dim = daysInMonth(ym);
+export const weekBlocks = (start, days) => {
   const out = [];
-  for (let s = 1, n = 1; s <= dim; s += 7, n++) {
-    const e = Math.min(s + 6, dim);
-    out.push({ n, startDay: s, endDay: e, start: `${ym}-${pad(s)}`, end: `${ym}-${pad(e)}`, days: e - s + 1 });
+  for (let off = 0, n = 1; off < days; off += 7, n++) {
+    const len = Math.min(7, days - off);
+    out.push({ n, startIdx: off + 1, endIdx: off + len, start: addDays(start, off), end: addDays(start, off + len - 1), days: len });
   }
   return out;
 };
@@ -255,7 +344,14 @@ export const computeAll = (data, nowISO) => {
   const tS = txns.filter((t) => t.type === "savings");
 
   const incomeL = income.map((l) => lineStats(l, tI));
-  const fixedL = fixed.map((l) => lineStats(l, tE));
+  const period = ed.period;
+  const fixedL = fixed.map((l) => {
+    const occ = occurrences(l, period);
+    const each = n0(l.amount);
+    const repeats = l.freq && l.freq !== "period";
+    const B = repeats ? r2(each * occ.length) : each; // repeating bills: amount each time x times due in this period
+    return { ...lineStats(l, tE, B), occ, each, repeats, notDue: repeats && occ.length === 0 };
+  });
   const varL = variable.map((l) => lineStats(l, tE));
   const savL = savings.map((l) => lineStats(l, tS));
   const stats = {};
@@ -310,22 +406,37 @@ export const computeAll = (data, nowISO) => {
   const essentialsCommitted = r2(fixedPlanned + essentialPlanned);
 
   const missing = [];
+  const salaryLine = income.find((l) => l.kind === "salary");
+  if (salaryLine && (salaryLine.amount === null || salaryLine.amount === undefined)) missing.push({ key: "pay", label: "Take-home pay this period", tab: "dashboard" });
   if (st.openingCash === null || st.openingCash === undefined) missing.push({ key: "cash", label: "Current account balance", tab: "dashboard" });
   if (efS && (efS.line.balance === null || efS.line.balance === undefined)) missing.push({ key: "efbal", label: "Emergency fund balance", tab: "dashboard" });
   fixed.filter((l) => l.amount === null).forEach((l) => missing.push({ key: l.id, label: l.name, tab: "plan", sub: "fixed" }));
   variable.filter((l) => l.amount === null).forEach((l) => missing.push({ key: l.id, label: l.name, tab: "plan", sub: "variable" }));
   savings.filter((l) => l.kind === "emergency" && l.amount === null).forEach(() => missing.push({ key: "efplan", label: "Monthly emergency fund contribution", tab: "plan", sub: "savings" }));
-  const budgetMissing = missing.filter((m) => m.tab === "plan").length;
+  const budgetMissing = missing.filter((m) => m.tab === "plan" || m.key === "pay").length;
 
+  /* Which occurrence of a repeating bill is the next unpaid one? Payments are matched in order. */
+  const paidCountOf = (x) => (x.each > 0 ? Math.floor((x.P + 0.005) / x.each) : 0);
   const upcoming = fixedL
     .filter((x) => x.remaining > 0)
-    .map((x) => ({ id: x.line.id, name: x.line.name, due: x.line.due, remaining: x.remaining, line: x.line }))
-    .sort((a, b) => (a.due || 99) - (b.due || 99));
+    .map((x) => {
+      const n = paidCountOf(x);
+      const date = n < x.occ.length ? x.occ[n] : null;
+      return { id: x.line.id, name: x.line.name, due: x.line.due, date, overdue: !!date && ed.state !== "before" && date < ed.date, remaining: x.remaining, each: x.each, occCount: x.occ.length, line: x.line };
+    })
+    .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999") || a.name.localeCompare(b.name));
+  const schedule = [];
+  fixedL.forEach((x) => {
+    const n = paidCountOf(x);
+    if (x.each <= 0) return;
+    x.occ.forEach((date, i) => schedule.push({ key: `${x.line.id}@${date}`, lineId: x.line.id, name: x.line.name, date, amount: x.each, paid: i < n, next: i === n, overdue: i >= n && ed.state !== "before" && date < ed.date }));
+  });
+  schedule.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
 
   const catRows = [...fixedL, ...varL].filter((x) => x.B > 0 || x.P > 0).map((x) => ({ id: x.line.id, name: x.line.name, B: x.B, P: x.P }));
 
-  /* weekly blocks (7-day blocks from the 1st) */
-  const weeks = weekBlocks(st.month).map((w) => {
+  /* weekly blocks (7-day blocks counted from the first day of the pay period) */
+  const weeks = weekBlocks(period.start, dim).map((w) => {
     const inW = (t) => t.date >= w.start && t.date <= w.end;
     const lines = varL.map((x) => {
       const mine = tE.filter((t) => t.catId === x.line.id && inW(t));
@@ -350,7 +461,7 @@ export const computeAll = (data, nowISO) => {
   const varPaidTx = tE.filter((t) => isPaid(t) && varIds.has(t.catId));
   const cumulative = [];
   for (let d = 1; d <= dim; d++) {
-    const date = `${st.month}-${pad(d)}`;
+    const date = addDays(period.start, d - 1);
     const hide = ed.state === "before" || (ed.state === "during" && d > ed.day);
     cumulative.push({ day: d, actual: hide ? null : sum(varPaidTx.filter((t) => t.date <= date), (t) => t.amount), pace: r2((variablePlanned * d) / dim) });
   }
@@ -368,7 +479,7 @@ export const computeAll = (data, nowISO) => {
     const save = r2((flex * pct) / 100);
     const spend = r2(flex - save);
     const months = save > 0 ? (efStartGap > 0 ? Math.ceil(efStartGap / save - 1e-9) : 0) : null;
-    const reachLabel = months === null ? null : months === 0 ? null : monthLabel(addMonths(st.month, months - 1));
+    const reachLabel = months === null ? null : months === 0 ? null : periodName(addMonths(st.month, months - 1), period.payday);
     const cap = efTarget > efStart ? efTarget : efStart;
     const proj = Array.from({ length: 13 }, (_, m) => ({ m, bal: r2(Math.min(efStart + save * m, cap)) }));
     return { key, label, pct, save, spend, spendWeek: r2(spend / (dim / 7)), months, reachLabel, proj, yearSaved: r2(save * 12), rate: incomePlanned > 0 ? save / incomePlanned : null };
@@ -388,7 +499,7 @@ export const computeAll = (data, nowISO) => {
   };
 
   return {
-    ed, stats, incomeL, fixedL, varL, savL: savBalances, txnCount: txns.length,
+    ed, period, stats, incomeL, fixedL, varL, savL: savBalances, txnCount: txns.length,
     incomeReceived, incomePlanned, incomeExpectedRemaining, incomePossible,
     expensesPaid, expensesProjected, fixedPlanned, fixedPaid, fixedRemaining,
     variablePlanned, variablePaid, variableRemaining, essentialRemaining, essentialPlanned,
@@ -397,7 +508,7 @@ export const computeAll = (data, nowISO) => {
     cash, buffer, expectedIncome, pool, reserved, safe, daily, weekly: r2(daily * 7),
     planAllocated, planUnallocated, savingsRateActual, savingsRatePlanned,
     efBalance, efTarget, efGap, efProgress, efPlanned, efStart, essentialsCommitted,
-    missing, budgetMissing, upcoming, catRows, weeks, curWeek, cumulative,
+    missing, budgetMissing, upcoming, schedule, catRows, weeks, curWeek, cumulative,
     flex, poolRaw, scenarios, payday,
   };
 };
@@ -463,9 +574,10 @@ export const csvToTxns = (text, data) => {
   const col = (n) => head.indexOf(n);
   const absent = ["date", "type", "amount"].filter((n) => col(n) < 0);
   if (absent.length) return { good: [], errors: [{ row: 1, reason: `Missing column: ${absent.join(", ")}. Expected: date, type, category, description, amount, status.` }], remapped: 0, total: 0 };
-  const ym = data.settings.month;
-  const lo = monthStart(ym);
-  const hi = monthEnd(ym);
+  const per = getPeriod(data.settings);
+  const lo = per.start;
+  const hi = per.end;
+  const perName = periodName(data.settings.month, per.payday);
   const groups = { income: data.income, expense: [...data.fixed, ...data.variable], savings: data.savings };
   const fallback = {
     income: data.income.find((l) => l.kind === "other") || data.income[0],
@@ -480,7 +592,7 @@ export const csvToTxns = (text, data) => {
     const line = i + 1;
     const date = toISODate(get("date"));
     if (!date) { errors.push({ row: line, reason: "Date not understood (use YYYY-MM-DD or DD/MM/YYYY)." }); continue; }
-    if (date < lo || date > hi) { errors.push({ row: line, reason: `Date ${date} is outside ${monthLabel(ym)}.` }); continue; }
+    if (date < lo || date > hi) { errors.push({ row: line, reason: `Date ${date} is outside ${perName}.` }); continue; }
     let type = get("type").toLowerCase();
     if (type === "saving") type = "savings";
     if (!groups[type]) { errors.push({ row: line, reason: "Type must be income, expense or savings." }); continue; }
@@ -518,32 +630,32 @@ export const parseBackup = (text) => {
 
 /* ---------- labelled examples ---------- */
 export const makeExamples = (d) => {
-  const ym = d.settings.month;
+  const p = getPeriod(d.settings);
   const spec = [
-    ["income", d.income, "salary", "01", "Example: salary", 2303, "paid"],
-    ["expense", d.fixed, "rent", "01", "Example: rent contribution", 1000, "paid"],
-    ["expense", d.fixed, "bills", "01", "Example: bills contribution", 188, "paid"],
-    ["savings", d.savings, "emergency", "02", "Example: transfer to emergency fund", 100, "paid"],
-    ["expense", d.variable, "groceries", "03", "Example: supermarket shop", 42.18, "paid"],
-    ["expense", d.variable, "eating", "07", "Example: lunch out", 14.5, "paid"],
-    ["expense", d.variable, "groceries", "09", "Example: top-up shop", 18.6, "paid"],
-    ["expense", d.variable, "music", "14", "Example: DJ cables (planned)", 30, "planned"],
+    ["income", d.income, "salary", 0, "Example: pay received", 2303, "paid"],
+    ["expense", d.fixed, "rent", 0, "Example: rent contribution", 1000, "paid"],
+    ["expense", d.fixed, "bills", 0, "Example: bills contribution", 188, "paid"],
+    ["savings", d.savings, "emergency", 1, "Example: transfer to emergency fund", 100, "paid"],
+    ["expense", d.variable, "groceries", 2, "Example: supermarket shop", 42.18, "paid"],
+    ["expense", d.variable, "eating", 6, "Example: lunch out", 14.5, "paid"],
+    ["expense", d.variable, "groceries", 8, "Example: top-up shop", 18.6, "paid"],
+    ["expense", d.variable, "music", 13, "Example: DJ cables (planned)", 30, "planned"],
   ];
   return spec
-    .map(([type, arr, key, day, desc, amount, status]) => {
+    .map(([type, arr, key, off, desc, amount, status]) => {
       const line = arr.find((l) => l.key === key);
-      return line ? { id: uid(), date: `${ym}-${day}`, type, catId: line.id, desc, amount, status, example: true } : null;
+      return line ? { id: uid(), date: addDays(p.start, off), type, catId: line.id, desc, amount, status, example: true } : null;
     })
     .filter(Boolean);
 };
 
 /* ---------- start next month ---------- */
-export const rollMonth = (data, nowISO) => {
+export const rollMonth = (data, nowISO, opts = {}) => {
   const C = computeAll(data, nowISO);
   const d = clone(data);
   d.history = [
     ...(d.history || []),
-    { month: data.settings.month, income: C.incomeReceived, expenses: C.expensesPaid, saved: C.savingsActual, rate: C.savingsRateActual, efBalance: C.efBalance },
+    { month: data.settings.month, label: periodName(data.settings.month, data.settings.payday || 1), income: C.incomeReceived, expenses: C.expensesPaid, saved: C.savingsActual, rate: C.savingsRateActual, efBalance: C.efBalance },
   ].slice(-36);
   d.savings = d.savings.map((l, i) => {
     const paid = C.savL[i].P;
@@ -551,6 +663,8 @@ export const rollMonth = (data, nowISO) => {
   });
   d.settings.openingCash = data.settings.openingCash === null && data.txns.length === 0 ? null : C.cash;
   d.settings.month = nextMonth(data.settings.month);
+  const pay = d.income.find((l) => l.kind === "salary");
+  if (pay && Object.prototype.hasOwnProperty.call(opts, "nextPay")) pay.amount = opts.nextPay === null || opts.nextPay === undefined ? null : r2(opts.nextPay);
   d.settings.asOf = "";
   d.txns = [];
   d.paydayChecks = {};

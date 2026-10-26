@@ -1,8 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Trash2, Download, Upload, Copy, RotateCcw } from "lucide-react";
-import { todayISO, nextMonth, monthLabel, defaultData, txnsToCSV, csvToTxns, txnKey, exportJSON, parseBackup, rollMonth } from "./calc.js";
+import { todayISO, nextMonth, periodName, defaultData, txnsToCSV, csvToTxns, txnKey, exportJSON, parseBackup, rollMonth } from "./calc.js";
 import { fmt, pctTxt } from "./format.js";
-import { Card, Note } from "./ui.jsx";
+import { Card, Note, Field, MoneyInput } from "./ui.jsx";
 import { requestPersistence, isPersisted, clearAll } from "./storage.js";
 
 /* ================= Data: export, import, new month, reset ================= */
@@ -19,7 +19,11 @@ export function DataView({ data, C, update, setData, notify, loadExamples, remov
   const [confirmRoll, setConfirmRoll] = useState(false);
   const [confirmWipe, setConfirmWipe] = useState(false);
   const hasExamples = data.txns.some((t) => t.example);
-  const nextLabel = monthLabel(nextMonth(data.settings.month));
+  const pdy = data.settings.payday || 1;
+  const nextLabel = periodName(nextMonth(data.settings.month), pdy);
+  const salaryLine = data.income.find((l) => l.kind === "salary");
+  const lastPay = salaryLine ? C.stats[salaryLine.id].P : 0;
+  const [nextPay, setNextPay] = useState(lastPay > 0 ? lastPay : salaryLine ? salaryLine.amount : null);
 
   const copy = async () => {
     try {
@@ -79,7 +83,7 @@ export function DataView({ data, C, update, setData, notify, loadExamples, remov
     if (t.startsWith("{")) {
       const r = parseBackup(t);
       if (!r.ok) setReport({ ok: false, msg: r.reason });
-      else setReport({ ok: true, kind: "json", data: r.data, msg: `Backup found for ${monthLabel(r.data.settings.month)}: ${r.data.txns.length} transactions. Restoring replaces everything currently in the app.` });
+      else setReport({ ok: true, kind: "json", data: r.data, msg: `Backup found for ${periodName(r.data.settings.month, r.data.settings.payday || 1)}: ${r.data.txns.length} transactions. Restoring replaces everything currently in the app.` });
     } else {
       const r = csvToTxns(t, data);
       setReport({ ok: r.good.length > 0, kind: "csv", ...r, msg: `${r.good.length} of ${r.total} rows are valid${r.remapped ? `, ${r.remapped} with an unknown category moved to a default one` : ""}${r.errors.length ? `, ${r.errors.length} skipped` : ""}.` });
@@ -105,7 +109,7 @@ export function DataView({ data, C, update, setData, notify, loadExamples, remov
     setText("");
   };
   const roll = () => {
-    setData(rollMonth(data, todayISO()));
+    setData(rollMonth(data, todayISO(), { nextPay }));
     setConfirmRoll(false);
     notify(`Started ${nextLabel}. Your plan and savings balances carried over.`);
   };
@@ -159,12 +163,17 @@ export function DataView({ data, C, update, setData, notify, loadExamples, remov
       </Card>
 
       <Card title={`Start ${nextLabel}`}>
-        <p className="small muted" style={{ marginBottom: 8 }}>Close out {monthLabel(data.settings.month)}: income {fmt(C.incomeReceived)}, spent {fmt(C.expensesPaid)}, saved {fmt(C.savingsActual)} ({pctTxt(C.savingsRateActual)}).</p>
+        <p className="small muted" style={{ marginBottom: 8 }}>Close out {periodName(data.settings.month, pdy)}: income {fmt(C.incomeReceived)}, spent {fmt(C.expensesPaid)}, saved {fmt(C.savingsActual)} ({pctTxt(C.savingsRateActual)}).</p>
         <ul className="list small" style={{ marginBottom: 10 }}>
-          <li><b>Kept:</b> all your budget amounts, categories, due days, settings and previous-month history.</li>
+          <li><b>Kept:</b> all your budget amounts, categories, repeating bills and their dates, payday, settings and past-period history.</li>
           <li><b>Rolled forward:</b> savings balances (plus what you moved this month) and your account balance ({fmt(C.cash)} as tracked).</li>
-          <li><b>Cleared:</b> this month's transactions, including any planned ones not yet paid, and the payday ticks.</li>
+          <li><b>Cleared:</b> this period's transactions, including any planned ones not yet paid, and the payday ticks.</li>
         </ul>
+        <div className="fields" style={{ marginBottom: 6 }}>
+          <Field label={`Expected take-home pay for ${nextLabel}`} hint={lastPay > 0 ? "Pre-filled with what you received this period. Change it if next period's pay will differ, or clear it to enter later." : "Leave blank to enter it on the Dashboard later. Nothing is assumed."}>
+            <MoneyInput label="Expected pay for the next period" nullable value={nextPay} placeholder="Enter £" onChange={setNextPay} />
+          </Field>
+        </div>
         {!confirmRoll ? (
           <button className="btn primary" onClick={() => setConfirmRoll(true)}><RotateCcw size={16} />Start {nextLabel}…</button>
         ) : (
@@ -192,7 +201,7 @@ export function DataView({ data, C, update, setData, notify, loadExamples, remov
       </Card>
 
       <Card title="Import">
-        <p className="small muted" style={{ marginBottom: 8 }}>Paste a CSV (columns: date, type, category, description, amount, status) or a JSON backup. UK dates (DD/MM/YYYY) work. Rows dated outside {monthLabel(data.settings.month)} are skipped. Unknown categories go to Miscellaneous (or the default income/savings line). Missing status means paid.</p>
+        <p className="small muted" style={{ marginBottom: 8 }}>Paste a CSV (columns: date, type, category, description, amount, status) or a JSON backup. UK dates (DD/MM/YYYY) work. Rows dated outside {periodName(data.settings.month, pdy)} are skipped. Unknown categories go to Miscellaneous (or the default income/savings line). Missing status means paid.</p>
         <textarea aria-label="Paste import data" placeholder="Paste CSV or JSON here" value={text} onChange={(e) => { setText(e.target.value); setReport(null); }} />
         <div className="actions" style={{ marginTop: 8, alignItems: "center" }}>
           <label className="btn"><Upload size={16} />Choose file<input type="file" accept=".csv,.json,.txt,text/csv,application/json" onChange={onFile} style={{ display: "none" }} /></label>

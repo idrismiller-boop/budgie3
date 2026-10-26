@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { Plus, Trash2, Check, Pencil } from "lucide-react";
-import { r2, sum, uid, isISO, monthStart, monthEnd, shortDate } from "./calc.js";
+import { r2, sum, uid, isISO, shortDate } from "./calc.js";
 import { fmt } from "./format.js";
 import { Chip, Card, Field, Note, MoneyInput } from "./ui.jsx";
 
 /* ================= Transaction log ================= */
-export function Log({ data, C, update, notify, loadExamples, removeExamples }) {
+export function Log({ data, C, update, notify, loadExamples, removeExamples, markPaid }) {
   const ed = C.ed;
-  const ym = data.settings.month;
+  const lo = C.period.start;
+  const hi = C.period.end;
   const blank = () => ({ type: "expense", date: ed.date, catId: "", amount: "", desc: "", status: "paid" });
   const [form, setForm] = useState(blank);
   const [editId, setEditId] = useState(null);
@@ -34,8 +35,8 @@ export function Log({ data, C, update, notify, loadExamples, removeExamples }) {
     const amt = parseFloat(form.amount);
     if (!form.catId) return setErr("Choose a category.");
     if (!(amt > 0)) return setErr("Enter an amount above £0.");
-    if (!isISO(form.date) || form.date < monthStart(ym) || form.date > monthEnd(ym))
-      return setErr(`Pick a date between ${shortDate(monthStart(ym))} and ${shortDate(monthEnd(ym))}. Paid early? Date it on the 1st.`);
+    if (!isISO(form.date) || form.date < lo || form.date > hi)
+      return setErr(`Pick a date between ${shortDate(lo)} and ${shortDate(hi)}. Paid early? Date it on the first day of the period.`);
     setErr("");
     const t = { id: editId || uid(), date: form.date, type: form.type, catId: form.catId, desc: form.desc.trim().slice(0, 80) || names[form.catId] || "", amount: r2(amt), status: form.status, example: false };
     update((d) => {
@@ -90,7 +91,7 @@ export function Log({ data, C, update, notify, loadExamples, removeExamples }) {
             </label>
           </Field>
           <Field label="Date">
-            <input type="date" aria-label="Date" min={monthStart(ym)} max={monthEnd(ym)} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            <input type="date" aria-label="Date" min={lo} max={hi} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           </Field>
           <Field label="Status" hint="Paid = money has moved. Planned = known and coming, but not paid yet.">
             <select aria-label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
@@ -112,6 +113,28 @@ export function Log({ data, C, update, notify, loadExamples, removeExamples }) {
           <button className="btn primary" onClick={submit}>{editId ? <><Check size={16} />Save changes</> : <><Plus size={16} />Add transaction</>}</button>
           {editId && <button className="btn" onClick={() => { setEditId(null); setErr(""); setForm(blank()); }}>Cancel</button>}
         </div>
+      </Card>
+
+      <Card title="Scheduled bills this period">
+        {C.schedule.length === 0 ? (
+          <p className="small muted">Give a bill a due day, or set it to repeat weekly, 4-weekly, quarterly or yearly, in Plan → Fixed expenses, and each payment shows here with its date.</p>
+        ) : (
+          <ul className="tx-list">
+            {C.schedule.map((x) => (
+              <li className="tx" key={x.key}>
+                <div className="tx-main">
+                  <span className="tx-date">{shortDate(x.date)}</span>
+                  <b>{x.name}</b>
+                  {x.paid ? <Chip tone="good">Paid</Chip> : x.overdue ? <Chip tone="bad">Overdue</Chip> : <Chip>Due</Chip>}
+                </div>
+                <div className="tx-amt">{fmt(x.amount)}</div>
+                <div className="tx-meta">{x.paid ? "Counted as paid from your logged payments" : x.next ? "Next one to pay" : "Later"}</div>
+                <div className="tx-act">{x.next && !x.paid && <button className="btn small" onClick={() => markPaid("fixed", x.lineId, { one: true })}><Check size={14} />Mark paid</button>}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {C.schedule.length > 0 && <p className="small muted" style={{ marginTop: 8 }}>Payments are matched to dates in order, so logging a payment against the bill ticks off the earliest unpaid date. It never adds to the budget twice.</p>}
       </Card>
 
       <Card title={`Transactions (${data.txns.length})`} aside={hasExamples ? <button className="btn small danger" onClick={removeExamples}><Trash2 size={14} />Remove all examples</button> : null}>

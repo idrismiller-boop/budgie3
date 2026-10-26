@@ -40,7 +40,7 @@ export function Weekly({ data, C }) {
   return (
     <>
       <div className="seg" role="group" aria-label="Choose week">
-        {C.weeks.map((x) => <button key={x.n} aria-pressed={wn === x.n} onClick={() => setWn(x.n)}>Week {x.n} · {x.startDay}–{x.endDay}</button>)}
+        {C.weeks.map((x) => <button key={x.n} aria-pressed={wn === x.n} onClick={() => setWn(x.n)}>Week {x.n} · {shortDate(x.start)}</button>)}
       </div>
       <Card title={`Week ${w.n}: planned vs actual (${shortDate(w.start)} – ${shortDate(w.end)})`}>
         <p className="small muted" style={{ marginBottom: 8 }}>"Planned" is each category's monthly budget shared across the month by days ({w.days} of {st.dim} days this week). "Spent" counts paid transactions only. Scheduled items are planned-status transactions dated this week.</p>

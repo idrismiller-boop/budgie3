@@ -8,3 +8,8 @@ export const fmt = (v) => {
 export const pctTxt = (x) => (x === null || x === undefined ? "–" : Math.round(x * 100) + "%");
 export const showNum = (v) => (v === null || v === undefined ? "" : Number.isInteger(v) ? String(v) : v.toFixed(2));
 export const STATUS_TXT = { over: ["bad", "Over budget"], near: ["warn", "Nearly used"], ahead: ["warn", "Ahead of pace"], unbudgeted: ["warn", "No budget set"], ok: ["good", "On track"] };
+export const ordinal = (n) => {
+  const v = n % 100;
+  const s = ["th", "st", "nd", "rd"];
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};

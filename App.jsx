@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
-  STORE_KEY, defaultData, normalizeData, computeAll, todayISO, monthLabel, monthStart, monthEnd, shortDate,
+  STORE_KEY, defaultData, normalizeData, computeAll, todayISO, periodName,
   makeExamples, sum, n0, r2, uid,
 } from "./calc.js";
+import { ordinal } from "./format.js";
 import { readRaw, writeRaw, storageAvailable, keepCorruptCopy, lastBackup, markBackup, requestPersistence } from "./storage.js";
 import { useInstall } from "./install.js";
 import { Dashboard } from "./Dashboard.jsx";
@@ -106,14 +107,18 @@ export default function App() {
     if (typeof window !== "undefined" && window.scrollTo) window.scrollTo({ top: 0 });
   };
 
-  const markPaid = (group, id) => update((d) => {
+  /* Marks a line paid. { one: true } pays just ONE occurrence of a repeating bill (e.g. this week's £20). */
+  const markPaid = (group, id, opts = {}) => update((d) => {
     const type = group === "income" ? "income" : group === "savings" ? "savings" : "expense";
     const line = d[group].find((l) => l.id === id);
     if (!line) return;
-    d.txns.forEach((t) => { if (t.catId === id && t.type === type && t.status === "planned") t.status = "paid"; });
+    const budget = C.stats[id] ? C.stats[id].B : n0(line.amount);
+    const verb = group === "income" ? "received" : group === "savings" ? "moved" : "paid";
+    if (!opts.one) d.txns.forEach((t) => { if (t.catId === id && t.type === type && t.status === "planned") t.status = "paid"; });
     const P = sum(d.txns.filter((t) => t.catId === id && t.type === type && t.status === "paid"), (t) => t.amount);
-    const extra = r2(n0(line.amount) - P);
-    if (extra > 0) d.txns.push({ id: uid(), date: C.ed.date, type, catId: id, desc: `${line.name} (marked ${group === "income" ? "received" : group === "savings" ? "moved" : "paid"})`, amount: extra, status: "paid", example: false });
+    const left = r2(budget - P);
+    const amount = opts.one ? Math.min(n0(line.amount), left) : left;
+    if (amount > 0) d.txns.push({ id: uid(), date: C.ed.date, type, catId: id, desc: `${line.name} (marked ${verb})`, amount: r2(amount), status: "paid", example: false });
   });
   const removeLine = (group, id) => {
     const line = data[group].find((l) => l.id === id);
@@ -128,7 +133,8 @@ export default function App() {
   const removeExamples = () => { update((d) => { d.txns = d.txns.filter((t) => !t.example); }); notify("Examples removed."); };
 
   const pill = { saving: ["Saving…", ""], saved: ["Saved on this device", "ok"], error: ["Couldn't save: export a backup", "bad"], unavailable: ["Not saving: export to keep", "bad"] }[storage];
-  const mLabel = monthLabel(data.settings.month);
+  const pd = data.settings.payday || 1;
+  const mLabel = periodName(data.settings.month, pd);
 
   return (
     <div className="bd">
@@ -136,16 +142,16 @@ export default function App() {
         <header className="top">
           <div>
             <h1>{mLabel}</h1>
-            <p className="sub">Monthly budget · GBP · {shortDate(monthStart(data.settings.month))} to {shortDate(monthEnd(data.settings.month))}</p>
+            <p className="sub">{pd > 1 ? `Pay cycle (payday around the ${ordinal(pd)})` : "Monthly budget"} · GBP · {C.period.days} days</p>
           </div>
           <span className={`pill ${pill[1]}`} role="status">{pill[0]}</span>
         </header>
         <nav className="tabs" role="tablist" aria-label="Sections">
           {TABS.map(([k, l]) => <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => go(k)}>{l}</button>)}
         </nav>
-        {tab === "dashboard" && <Dashboard data={data} C={C} update={update} go={go} markPaid={markPaid} backupAt={backupAt} />}
+        {tab === "dashboard" && <Dashboard data={data} C={C} update={update} go={go} markPaid={markPaid} backupAt={backupAt} notify={notify} />}
         {tab === "plan" && <Plan data={data} C={C} update={update} sub={planSub} setSub={setPlanSub} markPaid={markPaid} removeLine={removeLine} />}
-        {tab === "log" && <Log data={data} C={C} update={update} notify={notify} loadExamples={loadExamples} removeExamples={removeExamples} />}
+        {tab === "log" && <Log data={data} C={C} update={update} notify={notify} loadExamples={loadExamples} removeExamples={removeExamples} markPaid={markPaid} />}
         {tab === "payday" && <Payday data={data} C={C} update={update} markPaid={markPaid} />}
         {tab === "weekly" && <Weekly data={data} C={C} />}
         {tab === "scenarios" && <Scenarios data={data} C={C} update={update} notify={notify} />}

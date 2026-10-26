@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import { r2, shortDate } from "./calc.js";
+import { r2, n0, shortDate } from "./calc.js";
 import { fmt } from "./format.js";
 import { Chip, Card, StackBar } from "./ui.jsx";
 
@@ -21,7 +21,7 @@ export function Payday({ data, C, update, markPaid }) {
   const wk = C.weeks;
   return (
     <>
-      <Card title="When your salary arrives" aside={salS && salS.remaining > 0 ? <button className="btn primary small" onClick={() => markPaid("income", salary.id)}><Check size={14} />Log salary as received ({fmt(salS.remaining)})</button> : <Chip tone="good">Salary logged</Chip>}>
+      <Card title="When your pay arrives" aside={salS && n0(salary.amount) === 0 ? <Chip tone="need">Enter your pay on the Dashboard</Chip> : salS && salS.remaining > 0 ? <button className="btn primary small" onClick={() => markPaid("income", salary.id)}><Check size={14} />Log pay as received ({fmt(salS.remaining)})</button> : <Chip tone="good">Pay logged</Chip>}>
         <p className="muted small" style={{ marginBottom: 8 }}>
           Based on your guaranteed income of <b>{fmt(p.income)}</b>. Move each amount out of your main account on payday, so what's left in it is close to what you can actually spend. Tick each step as you do it.
         </p>

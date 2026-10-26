@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { AlertTriangle, Info } from "lucide-react";
-import { r2, sum } from "./calc.js";
+import { r2, sum, diffDays } from "./calc.js";
 import { fmt, showNum } from "./format.js";
 
 
@@ -149,13 +149,13 @@ export function CashStrip({ C }) {
 
 export function MonthRuler({ C }) {
   const { dim, day, state } = C.ed;
-  const pos = (d) => ((Math.min(d, dim) - 0.5) / dim) * 100;
+  const pos = (date) => ((Math.max(0, Math.min(dim - 1, diffDays(C.period.start, date))) + 0.5) / dim) * 100;
   return (
     <div className="ruler" aria-hidden="true">
       <div className="ruler-track">
         <span className="ruler-fill" style={{ width: `${state === "before" ? 0 : (day / dim) * 100}%` }} />
-        {C.upcoming.filter((u) => u.due).map((u) => (
-          <i key={u.id} className="due" style={{ left: `${pos(u.due)}%` }} title={`${u.name} due on the ${u.due}`} />
+        {C.schedule.filter((u) => !u.paid).map((u) => (
+          <i key={u.key} className="due" style={{ left: `${pos(u.date)}%` }} title={`${u.name} due ${u.date}`} />
         ))}
       </div>
       <div className="ruler-lab">

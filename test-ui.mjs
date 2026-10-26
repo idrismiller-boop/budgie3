@@ -30,11 +30,20 @@ const tab = async (name) => { const b = $$("button[role=tab]").find(x => x.textC
 const cur = new Date(); const curLabel = cur.toLocaleDateString("en-GB",{month:"long",year:"numeric"});
 ok(text().includes(curLabel), "title follows current month: " + curLabel);
 // switch month via Plan -> Settings (no transactions yet, so it applies instantly)
-await tab("Plan"); const mi = $("input[aria-label='Budget month']"); ok(!!mi, "month picker exists"); await setVal(mi, "2026-11"); await flush(50);
+await tab("Plan");
+{ const pdSel = $("select[aria-label=Payday]"); ok(!!pdSel, "payday selector exists"); await setVal(pdSel, "25"); await flush(30);
+  ok(/\d{1,2} \w{3} (\d{4} )?– \d{1,2} \w{3} \d{4}/.test($("h1").textContent), "header shows a pay-cycle date range: " + $("h1").textContent);
+  ok(text().includes("Pay cycle (payday around the 25th)"), "sub-heading names the payday");
+  await setVal($("select[aria-label=Payday]"), "1"); await flush(30); ok(/^[A-Z][a-z]+ \d{4}$/.test($("h1").textContent), "payday 1 returns to a calendar month"); }
+const mi = $("input[aria-label='Budget month']"); ok(!!mi, "month picker exists"); await setVal(mi, "2026-11"); await flush(50);
 ok(text().includes("November 2026"), "month switched to November 2026");
 await tab("Dashboard");
 ok(text().includes("Fill in your figures"), "setup card shown");
 ok(text().includes("£ – –"), "safe-to-spend withheld until cash entered");
+// pay starts blank and is flagged; typing it clears the flag
+ok(text().includes("Enter your pay"), "pay starts blank and flagged");
+await setVal($("input[aria-label='Expected take-home pay']"), "2303"); await flush(30);
+ok(!text().includes("Enter your pay"), "pay flag clears once typed");
 // enter opening cash
 const cash = $("input[aria-label='Current account balance']"); ok(!!cash, "cash input"); await setVal(cash, "2500"); await flush(50);
 ok(!text().includes("£ – –"), "safe-to-spend appears"); 
@@ -43,7 +52,7 @@ ok(/£1,262\.00/.test(text()), "safe = 2500-1188-50 = 1262 shown: " + (text().ma
 for (const t of ["Plan","Log","Payday","Weekly","Scenarios","Data","Dashboard"]) { await tab(t); ok(text().length > 200, "tab renders: " + t); }
 // plan: set groceries
 await tab("Plan"); await click($$(".seg button").find(b => b.textContent === "Variable spending"));
-const gro = $("input[aria-label='Groceries monthly amount']"); ok(!!gro, "groceries amount"); await setVal(gro, "250"); await flush(50);
+const gro = $("input[aria-label='Groceries amount']"); ok(!!gro, "groceries amount"); await setVal(gro, "250"); await flush(50);
 ok(/£250\.00/.test(text()), "groceries budget shows");
 // log: add expense
 await tab("Log");
@@ -59,8 +68,13 @@ await tab("Weekly"); ok(text().includes("Week 1"), "weekly");
 await tab("Scenarios"); const useBtn = $$("button").find(b => b.textContent === "Use this plan" && !b.disabled); ok(!!useBtn, "apply button enabled"); if (useBtn) await click(useBtn); await flush(50);
 await tab("Plan"); await click($$(".seg button").find(b => b.textContent === "Savings")); ok(/Emergency fund/.test(text()), "savings tab");
 // payday
-await tab("Payday"); const logSal = $$("button").find(b => b.textContent.includes("Log salary as received")); ok(!!logSal, "log salary button"); await click(logSal); await flush(50);
-ok(text().includes("Salary logged"), "salary logged chip");
+// record pay that differs from the expectation: plan should adopt the real amount
+await tab("Dashboard");
+await setVal($("input[aria-label='Pay received amount']"), "2350"); await click($$("button").find(b => b.textContent === "Record pay received")); await flush(50);
+ok(text().includes("Received £2,350.00"), "pay received chip shows the real amount");
+await tab("Plan"); await click($$(".seg button").find(b => b.textContent === "Income"));
+ok($("input[aria-label='Take-home pay amount']").value === "2350", "plan adopted the received amount (2350)");
+await tab("Payday"); ok(text().includes("Pay logged"), "payday tab: pay logged");
 // examples
 await tab("Data"); await click($$("button").find(b => b.textContent.includes("Load labelled example"))); await flush(50);
 await tab("Log"); ok(text().includes("Example"), "examples labelled"); await click($$("button").find(b => b.textContent.includes("Remove all examples"))); await flush(50);
@@ -74,8 +88,11 @@ ok(/valid/.test(text()) && /outside November 2026/.test(text()), "import report 
 await click($$("button").find(b => b.textContent === "Import now")); await flush(50);
 await tab("Log"); ok(text().includes("Pizza"), "imported row appears");
 // roll month
-await tab("Data"); await click($$("button").find(b => b.textContent.startsWith("Start December"))); await click($$("button").find(b => b.textContent.startsWith("Yes, start December"))); await flush(700);
+await tab("Data"); ok(!!$("input[aria-label='Expected pay for the next period']"), "roll panel asks for next period pay"); ok($("input[aria-label='Expected pay for the next period']").value === "2350", "prefilled with pay actually received");
+await setVal($("input[aria-label='Expected pay for the next period']"), "2600");
+await click($$("button").find(b => b.textContent.startsWith("Start December"))); await click($$("button").find(b => b.textContent.startsWith("Yes, start December"))); await flush(700);
 ok(text().includes("December 2026"), "rolled to December");
+await tab("Dashboard"); ok($("input[aria-label='Expected take-home pay']").value === "2600", "next period pay carried from the prompt (2600)"); ok(text().includes("Not received yet"), "new period: pay not received yet");
 const saved = JSON.parse(w.localStorage.getItem(KEY)); ok(saved.settings.month === "2026-12" && saved.history.length === 1 && saved.txns.length === 0, "persisted after roll");
 ok(!!w.localStorage.getItem(KEY), "autosave wrote to localStorage");
 await tab("Dashboard"); ok(text().includes("Previous months"), "history table");
@@ -85,9 +102,17 @@ const root2 = createRoot(document.getElementById("root"));
 await act(async () => { root2.render(React.createElement(App)); }); await flush(100);
 ok(text().includes("December 2026"), "after reload: still December 2026 (persisted)");
 await tab("Plan"); await click($$(".seg button").find(b => b.textContent === "Variable spending"));
-ok($("input[aria-label='Groceries monthly amount']").value === "250", "after reload: groceries budget 250 persisted");
+ok($("input[aria-label='Groceries amount']").value === "250", "after reload: groceries budget 250 persisted");
 await tab("Data"); ok($("textarea[aria-label='Export text']").value.split("\n").length === 1, "after reload: new month has no transactions");
 
+// --- repeating bills ---
+await tab("Plan"); await click($$(".seg button").find(b => b.textContent === "Fixed expenses"));
+await setVal($("input[aria-label='Phone amount']"), "20");
+await setVal($("select[aria-label='Phone repeats']"), "weekly"); await flush(30);
+ok(/£20\.00 × 5 = £100\.00 this period/.test(text()) || /£20\.00 × 4 = £80\.00 this period/.test(text()), "repeating bill shows amount × payments = period total");
+await tab("Log"); ok(text().includes("Scheduled bills this period"), "log shows schedule card"); ok($$(".tx").filter(x => x.textContent.includes("Phone")).length >= 4, "each weekly payment listed with a date");
+await tab("Dashboard"); const mn = $$("button").find(b => b.textContent.startsWith("Mark next paid")); ok(!!mn, "dashboard offers 'Mark next paid' for a repeating bill"); await click(mn); await flush(30);
+await tab("Log"); ok(text().includes("Phone (marked paid)"), "one occurrence was logged as paid"); ok(text().includes("−£20.00"), "only one payment (£20) was added, not the whole period");
 // --- PWA/local-storage specific checks ---
 await tab("Dashboard"); ok(text().includes("isn't backed up"), "backup nudge shown when data exists and no backup");
 await tab("Data");
@@ -104,7 +129,7 @@ await act(async () => { w.dispatchEvent(evt); }); await tab("Data");
 const ib = $$("button").find(b => b.textContent === "Install app"); ok(!!ib, "Install button appears on beforeinstallprompt"); if (ib) await click(ib); ok(prompted, "native install prompt invoked");
 // flush on hide: change something then hide immediately (before debounce) and check storage
 await tab("Plan"); await click($$(".seg button").find(b => b.textContent === "Variable spending"));
-await setVal($("input[aria-label='Groceries monthly amount']"), "321");
+await setVal($("input[aria-label='Groceries amount']"), "321");
 Object.defineProperty(w.document, "visibilityState", { value: "hidden", configurable: true }); w.document.dispatchEvent(new w.Event("visibilitychange"));
 ok(JSON.parse(w.localStorage.getItem(KEY)).variable[0].amount === 321, "saved immediately when app is hidden (no debounce wait)");
 Object.defineProperty(w.document, "visibilityState", { value: "visible", configurable: true });

@@ -1,5 +1,5 @@
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend as RLegend, ReferenceLine } from "recharts";
-import { MONTHS, r2, n0, parseISO, monthStart, addMonths } from "./calc.js";
+import { r2, n0, addMonths, periodShort } from "./calc.js";
 import { fmt, pctTxt } from "./format.js";
 import { Chip, Card, Note } from "./ui.jsx";
 
@@ -26,7 +26,7 @@ export function Scenarios({ data, C, update, notify }) {
     const toEf = Math.min(s.save, gap);
     notify(`${s.label} applied: ${fmt(toEf)} to the emergency fund${s.save - toEf > 0 ? `, ${fmt(s.save - toEf)} to other savings` : ""}. Investing is never changed automatically.`);
   };
-  const chart = Array.from({ length: 13 }, (_, m) => ({ m: m === 0 ? "Start" : `${MONTHS[parseISO(monthStart(addMonths(st.month, m - 1))).m - 1]}`, Cautious: C.scenarios[0].proj[m].bal, Balanced: C.scenarios[1].proj[m].bal, Ambitious: C.scenarios[2].proj[m].bal }));
+  const chart = Array.from({ length: 13 }, (_, m) => ({ m: m === 0 ? "Start" : periodShort(addMonths(st.month, m - 1), st.payday || 1), Cautious: C.scenarios[0].proj[m].bal, Balanced: C.scenarios[1].proj[m].bal, Ambitious: C.scenarios[2].proj[m].bal }));
   const colour = { cautious: "#7B8B97", balanced: "#2F54A4", ambitious: "#0E7C66" };
   return (
     <>

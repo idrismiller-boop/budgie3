@@ -1,7 +1,7 @@
 {
   "name": "monthly-budget",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Personal monthly budgeting dashboard (installable PWA). Data stays on your device.",
   "type": "module",
   "engines": {
@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "prebuild": "node -e \"const f=['index.html','vite.config.js','main.jsx','App.jsx','styles.css','calc.js','format.js','storage.js','install.js','ui.jsx','Dashboard.jsx','Plan.jsx','Log.jsx','Payday.jsx','Weekly.jsx','Scenarios.jsx','DataView.jsx','favicon.svg','icon-192.png','icon-512.png','icon-maskable-512.png','apple-touch-icon.png'];const m=f.filter(x=>!require('fs').existsSync(x));if(m.length){console.error('\\n=== BUILD STOPPED: these files are missing from your GitHub repository ===\\n  '+m.join('\\n  ')+'\\n\\nUpload them to the TOP LEVEL of the repository (no folders), then redeploy.\\n');process.exit(1)}else{console.log('Project files OK ('+f.length+' required files found)')}\"",
+    "prebuild": "node -e \"const f=['index.html','vite.config.js','main.jsx','App.jsx','styles.css','calc.js','format.js','storage.js','install.js','ui.jsx','PayCard.jsx','Dashboard.jsx','Plan.jsx','Log.jsx','Payday.jsx','Weekly.jsx','Scenarios.jsx','DataView.jsx','favicon.svg','icon-192.png','icon-512.png','icon-maskable-512.png','apple-touch-icon.png'];const m=f.filter(x=>!require('fs').existsSync(x));if(m.length){console.error('\\n=== BUILD STOPPED: these files are missing from your GitHub repository ===\\n  '+m.join('\\n  ')+'\\n\\nUpload them to the TOP LEVEL of the repository (no folders), then redeploy.\\n');process.exit(1)}else{console.log('Project files OK ('+f.length+' required files found)')}\"",
     "build": "vite build",
     "preview": "vite preview --host",
     "lint": "eslint .",

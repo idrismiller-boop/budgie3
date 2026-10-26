@@ -1,17 +1,18 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend as RLegend } from "recharts";
-import { MONTHS, todayISO, parseISO, monthStart, nextMonth, addMonths, monthLabel, shortDate } from "./calc.js";
+import { todayISO, nextMonth, addMonths, periodName, shortDate } from "./calc.js";
 import { fmt, pctTxt } from "./format.js";
+import { PayCard } from "./PayCard.jsx";
 import { Money, Chip, Meter, Card, Field, Note, MoneyInput, StackBar, Swatches, CashStrip, MonthRuler } from "./ui.jsx";
 
 /* ================= Dashboard ================= */
 export function SetupCard({ data, C, update, go }) {
   const st = data.settings;
   const efLine = data.savings.find((l) => l.kind === "emergency");
-  const rest = C.missing.filter((m) => m.key !== "cash" && m.key !== "efbal");
+  const rest = C.missing.filter((m) => m.key !== "cash" && m.key !== "efbal" && m.key !== "pay");
   return (
-    <Card title={`Fill in your figures (${C.missing.length} to go)`}>
+    <Card title={`Fill in your figures (${C.missing.filter((m) => m.key !== "pay").length} to go)`}>
       <p className="small muted">Nothing here is guessed. Anything blank counts as £0 until you enter it, so the numbers below are provisional until you do.</p>
-      <p className="small" style={{ marginBottom: 6 }}>Budgeting for <b>{monthLabel(st.month)}</b>. <button className="chip btn-chip" onClick={() => go("plan", "settings")}>Change month</button></p>
+      <p className="small" style={{ marginBottom: 6 }}>Budgeting for <b>{periodName(st.month, st.payday || 1)}</b>. <button className="chip btn-chip" onClick={() => go("plan", "settings")}>Change period or payday</button></p>
       <div className="setup-grid">
         {(st.openingCash === null || st.openingCash === undefined) && (
           <Field label="Current account balance" hint="Your balance on the 1st of the month, or today's balance if you will only log new transactions from now on. Enter 0 if empty.">
@@ -38,14 +39,14 @@ export function SetupCard({ data, C, update, go }) {
   );
 }
 
-export function Dashboard({ data, C, update, go, markPaid, backupAt }) {
+export function Dashboard({ data, C, update, go, markPaid, backupAt, notify }) {
   const st = data.settings;
   const ready = st.openingCash !== null && st.openingCash !== undefined;
   const short = C.safe < 0;
-  const monthName = monthLabel(st.month);
+  const monthName = periodName(st.month, st.payday || 1);
   let heroLine;
   if (!ready) heroLine = "Enter your current account balance to switch this on.";
-  else if (C.ed.state === "after") heroLine = `${monthName} is over. Start a new month from the Data tab.`;
+  else if (C.ed.state === "after") heroLine = `${monthName} is over. Start the next period from the Data tab.`;
   else if (short) heroLine = `You're ${fmt(-C.safe)} short of covering bills, savings and essentials. Hold off on non-essential spending.`;
   else heroLine = `After ${fmt(C.fixedRemaining)} of bills, ${fmt(C.savingsRemaining)} of savings, ${fmt(C.essentialRemaining)} of essentials${C.buffer > 0 ? ` and a ${fmt(C.buffer)} buffer` : ""}.`;
 
@@ -68,7 +69,7 @@ export function Dashboard({ data, C, update, go, markPaid, backupAt }) {
     <>
       {C.ed.state === "before" && (
         <Note tone="info">
-          {monthName} hasn't started yet, so this shows the whole month ({C.ed.dim} days). To rehearse a day mid-month, set "Pretend today is" under Plan → Settings.
+          {monthName} hasn't started yet, so this shows the whole period ({C.ed.dim} days). To rehearse a day part-way through, set "Pretend today is" under Plan → Settings.
         </Note>
       )}
       {(data.txns.length > 0 || data.history.length > 0) && (!backupAt || (Date.now() - new Date(backupAt).getTime()) / 86400000 > 14) && (
@@ -77,12 +78,13 @@ export function Dashboard({ data, C, update, go, markPaid, backupAt }) {
           <button className="btn small" style={{ marginLeft: 6 }} onClick={() => go("data")}>Back up now</button>
         </Note>
       )}
-      {C.ed.state === "after" && todayISO().slice(0, 7) > st.month && (
+      {C.ed.state === "after" && todayISO() > C.period.end && (
         <Note tone="warn">
-          {monthName} has finished. <button className="btn small" style={{ marginLeft: 6 }} onClick={() => go("data")}>Start {monthLabel(nextMonth(st.month))}</button>
+          {monthName} has finished. <button className="btn small" style={{ marginLeft: 6 }} onClick={() => go("data")}>Start {periodName(nextMonth(st.month), st.payday || 1)}</button>
         </Note>
       )}
-      {C.missing.length > 0 && <SetupCard data={data} C={C} update={update} go={go} />}
+      <PayCard data={data} C={C} update={update} notify={notify} />
+      {C.missing.filter((m) => m.key !== "pay").length > 0 && <SetupCard data={data} C={C} update={update} go={go} />}
 
       <section className="card hero" aria-label="Safe to spend">
         <div className="hero-top">
@@ -171,7 +173,7 @@ export function Dashboard({ data, C, update, go, markPaid, backupAt }) {
         <Meter tall value={C.efProgress} label="Emergency fund progress" />
         <p className="small muted">
           {C.efTarget <= 0 ? "Set a target in Plan → Savings." : C.efGap <= 0 ? "Target reached. Extra savings can go towards other goals." : `${fmt(C.efGap)} to go. `}
-          {efMonths !== null && `At ${fmt(C.efPlanned)} a month that's about ${efMonths} month${efMonths > 1 ? "s" : ""} (by the end of ${monthLabel(addMonths(st.month, efMonths - 1))}).`}
+          {efMonths !== null && `At ${fmt(C.efPlanned)} a period that's about ${efMonths} period${efMonths > 1 ? "s" : ""} (by the end of ${periodName(addMonths(st.month, efMonths - 1), st.payday || 1)}).`}
           {C.efGap > 0 && C.efPlanned <= 0 && " No monthly contribution planned yet: see Scenarios."}
           {cover !== null && C.efBalance > 0 && ` Covers about ${cover.toFixed(1)} months of your essential costs (${fmt(C.essentialsCommitted)} a month).`}
         </p>
@@ -186,10 +188,10 @@ export function Dashboard({ data, C, update, go, markPaid, backupAt }) {
             <ul className="list" style={{ listStyle: "none", padding: 0 }}>
               {C.upcoming.map((u) => (
                 <li key={u.id} className="row-between">
-                  <span><b>{u.name}</b> <span className="muted small">{u.due ? `due ${u.due} ${MONTHS[parseISO(monthStart(st.month)).m - 1]}` : "no due date set"}</span></span>
+                  <span><b>{u.name}</b> {u.overdue && <Chip tone="bad">Overdue</Chip>} <span className="muted small">{u.date ? `due ${shortDate(u.date)}` : "no due date set"}{u.occCount > 1 ? ` · ${u.occCount} payments this period` : ""}</span></span>
                   <span className="actions" style={{ alignItems: "center" }}>
-                    <b>{fmt(u.remaining)}</b>
-                    <button className="btn small" onClick={() => markPaid("fixed", u.id)}>Mark paid</button>
+                    <b>{u.occCount > 1 ? fmt(u.each) : fmt(u.remaining)}</b>
+                    <button className="btn small" onClick={() => markPaid("fixed", u.id, u.occCount > 1 ? { one: true } : undefined)}>{u.occCount > 1 ? `Mark next paid (${fmt(u.each)})` : "Mark paid"}</button>
                   </span>
                 </li>
               ))}
@@ -230,7 +232,7 @@ export function Dashboard({ data, C, update, go, markPaid, backupAt }) {
               <thead><tr><th>Month</th><th className="r">Income</th><th className="r">Spent</th><th className="r">Saved</th><th className="r">Rate</th><th className="r">Emergency fund</th></tr></thead>
               <tbody>
                 {data.history.map((h, i) => (
-                  <tr key={i}><td>{h.month ? monthLabel(h.month) : "–"}</td><td className="r">{fmt(h.income)}</td><td className="r">{fmt(h.expenses)}</td><td className="r">{fmt(h.saved)}</td><td className="r">{pctTxt(h.rate)}</td><td className="r">{fmt(h.efBalance)}</td></tr>
+                  <tr key={i}><td>{h.label || (h.month ? periodName(h.month, 1) : "–")}</td><td className="r">{fmt(h.income)}</td><td className="r">{fmt(h.expenses)}</td><td className="r">{fmt(h.saved)}</td><td className="r">{pctTxt(h.rate)}</td><td className="r">{fmt(h.efBalance)}</td></tr>
                 ))}
               </tbody>
             </table>

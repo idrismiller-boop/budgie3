@@ -1,13 +1,26 @@
-# Monthly Budget (installable PWA), flat layout
+# Monthly Budget (installable PWA), flat layout, v1.1
 
 Personal monthly budget dashboard (React + Vite). Works offline once installed.
 All data stays on your device (browser local storage). No accounts, analytics, tracking or bank connections.
+
+## What is new in v1.1
+- **Monthly pay entry:** a "Pay this period" card on the Dashboard. Type what you expect, then record what actually
+  arrived and when. Once pay is recorded the plan uses the real amount. Pay starts blank on a fresh install.
+- **Pay-cycle periods:** choose your payday in Plan → Settings and the budget runs payday to payday (e.g. 25 Oct – 24 Nov).
+  Payday "1st" is an ordinary calendar month. Weeks, days-left, the daily guide and imports all follow the cycle.
+- **Recurring bills:** each fixed bill can repeat every pay period, weekly, every 2 or 4 weeks, every 3 months or yearly,
+  with a due day or a date. Each payment appears with its date in the Log and the Dashboard, is flagged Overdue when late,
+  and bills not due this period cost nothing. "Mark next paid" pays one occurrence.
+- **Start next period** asks for the next period's pay and carries your plan, repeating bills and balances forward.
+
+Your existing saved data keeps working: it opens as a calendar-month budget with your pay and bills unchanged.
 
 ## This project has NO folders on purpose
 Every file sits at the top level so the GitHub browser uploader can't drop any of them.
 
 ```
 index.html  main.jsx  App.jsx  styles.css           the app entry + shell + styling
+PayCard.jsx                                         monthly pay entry (top of the Dashboard)
 calc.js  format.js  storage.js  install.js          logic (calculations, formatting, local storage, install)
 ui.jsx  Dashboard.jsx  Plan.jsx  Log.jsx  Payday.jsx  Weekly.jsx  Scenarios.jsx  DataView.jsx
 favicon.svg  icon-192.png  icon-512.png  icon-maskable-512.png  apple-touch-icon.png
@@ -19,7 +32,7 @@ test-calc.mjs  test-ui.mjs  README.md
 1. Unzip the download. You get one list of files and no folders.
 2. In your repo: **Add file → Upload files**.
 3. Select ALL the files (Ctrl/Cmd+A in the folder, or multi-select on a phone/tablet) and drop them in, or use
-   "choose your files". Wait until every file shows as uploaded (there are about 29).
+   "choose your files". Wait until every file shows as uploaded (there are about 31).
 4. **Commit changes**. Files with the same name (index.html, package.json, vite.config.js...) are replaced.
 5. Check the repo's main page lists `main.jsx`, `App.jsx`, `calc.js`, `icon-192.png`... at the top level.
 6. Vercel redeploys on its own. If not: Project → Deployments → Redeploy.
